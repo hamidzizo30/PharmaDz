@@ -592,6 +592,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 
 .pharmacy-card .pharmacy-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-xs);
     margin-top: var(--space-sm);
 }
@@ -1439,3 +1440,652 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
     0%, 100% { filter: drop-shadow(0 0 4px rgba(230,81,0,0.6)); }
     50% { filter: drop-shadow(0 0 12px rgba(230,81,0,0.9)); }
 }
+
+/* ============================================================
+   v2 — NEAREST 10 / RANKED PHARMACY CARDS
+   ============================================================ */
+.pharmacy-card.ranked {
+    padding-left: 56px;
+}
+
+.rank-badge {
+    position: absolute;
+    top: var(--space-md);
+    left: 14px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+    font-size: 0.85rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--md-elevation-2);
+    z-index: 2;
+}
+
+.pharmacy-card.ranked .pharmacy-avatar {
+    display: none;
+}
+
+.pharmacy-card .btn-claim {
+    background: var(--md-tertiary-container);
+    color: var(--md-on-tertiary-container);
+}
+
+.pharmacy-card .btn-claim:active {
+    background: #f0cf80;
+}
+
+.nearest-hero {
+    text-align: center;
+    padding: var(--space-2xl) var(--space-lg);
+    color: var(--md-on-surface-variant);
+}
+
+.nearest-hero .material-symbols-rounded {
+    font-size: 72px;
+    color: var(--md-primary);
+    margin-bottom: var(--space-md);
+}
+
+.nearest-hero h2 {
+    font-size: 1.25rem;
+    color: var(--md-on-surface);
+    margin-bottom: var(--space-sm);
+}
+
+.nearest-hero p {
+    font-size: 0.9rem;
+    margin-bottom: var(--space-lg);
+    line-height: 1.5;
+}
+
+.nearest-hero .btn-primary {
+    margin: 0 auto;
+}
+
+/* ============================================================
+   v2 — MENU SHEET
+   ============================================================ */
+.menu-sheet-container {
+    padding-top: var(--space-xl);
+}
+
+.menu-sheet-header {
+    text-align: center;
+    margin-bottom: var(--space-lg);
+}
+
+.menu-sheet-header .menu-icon {
+    width: 64px;
+    height: 64px;
+}
+
+.menu-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.menu-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--md-surface-container);
+    border-radius: var(--md-shape-lg);
+    transition: all var(--anim-duration) var(--anim-easing);
+    border: 1px solid transparent;
+}
+
+.menu-option:active {
+    transform: scale(0.98);
+    background: var(--md-surface-container-high);
+}
+
+.menu-opt-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--md-shape-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.menu-opt-icon .material-symbols-rounded {
+    font-size: 26px;
+}
+
+.menu-opt-icon.pharmacist { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.menu-opt-icon.claims { background: var(--md-tertiary-container); color: var(--md-on-tertiary-container); }
+.menu-opt-icon.admin { background: #ede7f6; color: #4527a0; }
+
+.menu-opt-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    min-width: 0;
+}
+
+.menu-opt-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--md-on-surface);
+}
+
+.menu-opt-sub {
+    font-size: 0.75rem;
+    color: var(--md-on-surface-variant);
+}
+
+.menu-opt-chevron {
+    color: var(--md-outline-variant);
+    font-size: 22px;
+}
+
+/* ============================================================
+   v2 — CLAIM MODAL extras
+   ============================================================ */
+.claim-icon {
+    background: var(--md-tertiary-container) !important;
+}
+
+.claim-icon .material-symbols-rounded {
+    color: var(--md-on-tertiary-container) !important;
+}
+
+.claim-row {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.claim-disclaimer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.75rem;
+    color: var(--md-on-surface-variant);
+    background: var(--md-surface-container);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--md-shape-sm);
+    margin: var(--space-xs) 0;
+}
+
+.claim-disclaimer .material-symbols-rounded {
+    font-size: 16px;
+    color: var(--md-primary);
+}
+
+/* ============================================================
+   v2 — SEARCH RESULT claim rows
+   ============================================================ */
+.search-pharm-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    margin-top: 6px;
+}
+
+.search-pharm-loc {
+    font-size: 0.72rem;
+    color: var(--md-primary);
+}
+
+.btn-mini-claim {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 10px;
+    border-radius: var(--md-shape-full);
+    background: var(--md-tertiary-container);
+    color: var(--md-on-tertiary-container);
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   v2 — CLAIMS VIEW & CARDS
+   ============================================================ */
+.claims-header {
+    background: linear-gradient(135deg, var(--md-tertiary), #b88400);
+    color: white;
+    padding: var(--space-xl) var(--space-md);
+    text-align: center;
+    border-radius: 0 0 var(--md-shape-xl) var(--md-shape-xl);
+    margin-bottom: var(--space-md);
+}
+
+.claims-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    margin: 0 auto var(--space-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.claims-icon .material-symbols-rounded {
+    font-size: 34px;
+}
+
+.claims-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.claims-header p {
+    font-size: 0.82rem;
+    opacity: 0.9;
+    margin-top: 2px;
+}
+
+.claims-list {
+    padding: 0 var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-bottom: var(--space-lg);
+}
+
+.claim-card {
+    background: var(--md-surface);
+    border-radius: var(--md-shape-lg);
+    padding: var(--space-md);
+    box-shadow: var(--md-elevation-1);
+    border: 1px solid var(--md-outline-variant);
+    border-left: 4px solid var(--md-outline-variant);
+}
+
+.claim-card .st-pending   { border-left-color: #f9a825; }
+.claim-card .st-confirmed { border-left-color: #1565c0; }
+.claim-card .st-ready     { border-left-color: #00838f; }
+.claim-card .st-completed { border-left-color: #2e7d32; }
+.claim-card .st-rejected  { border-left-color: #c62828; }
+
+.claim-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-sm);
+}
+
+.claim-med {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: center;
+}
+
+.claim-med-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--md-shape-sm);
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.claim-med-name {
+    font-weight: 700;
+    font-size: 0.92rem;
+}
+
+.claim-qty {
+    color: var(--md-on-surface-variant);
+    font-weight: 600;
+}
+
+.claim-pharm {
+    font-size: 0.78rem;
+    color: var(--md-on-surface-variant);
+    margin-top: 2px;
+}
+
+.claim-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: var(--md-shape-full);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.claim-status-badge.st-pending   { background: #fff8e1; color: #f57f17; }
+.claim-status-badge.st-confirmed { background: #e3f2fd; color: #1565c0; }
+.claim-status-badge.st-ready     { background: #e0f7fa; color: #00838f; }
+.claim-status-badge.st-completed { background: #e8f5e9; color: #2e7d32; }
+.claim-status-badge.st-rejected  { background: #fbe9e7; color: #c62828; }
+
+.claim-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+    font-size: 0.74rem;
+    color: var(--md-on-surface-variant);
+}
+
+.claim-meta span,
+.claim-meta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.claim-meta .material-symbols-rounded {
+    font-size: 15px;
+}
+
+.claim-meta a {
+    color: var(--md-primary);
+}
+
+.claim-note {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: var(--space-sm);
+    font-size: 0.76rem;
+    color: var(--md-on-surface-variant);
+    background: var(--md-surface-container);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--md-shape-sm);
+}
+
+.claim-note .material-symbols-rounded {
+    font-size: 15px;
+}
+
+.claim-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+
+.btn-cancel-claim {
+    background: var(--md-error-container);
+    color: var(--md-on-error-container);
+    font-weight: 700;
+}
+
+.claim-status-select {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: var(--md-shape-full);
+    border: 1px solid var(--md-outline-variant);
+    background: var(--md-surface-container);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--md-on-surface);
+    outline: none;
+    cursor: pointer;
+}
+
+.btn-icon-x {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--md-error-container);
+    color: var(--md-on-error-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.btn-icon-x .material-symbols-rounded {
+    font-size: 18px;
+}
+
+.mini-empty {
+    text-align: center;
+    padding: var(--space-lg);
+    font-size: 0.85rem;
+    color: var(--md-on-surface-variant);
+    background: var(--md-surface-container);
+    border-radius: var(--md-shape-md);
+}
+
+.count-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--md-shape-full);
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-left: var(--space-xs);
+}
+
+/* ============================================================
+   v2 — ADMIN SPACE
+   ============================================================ */
+.admin-login {
+    text-align: center;
+    padding: var(--space-2xl) var(--space-md);
+}
+
+.admin-login-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #ede7f6;
+    color: #4527a0;
+    margin: 0 auto var(--space-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-login-icon .material-symbols-rounded {
+    font-size: 42px;
+}
+
+.admin-login h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+}
+
+.admin-login .portal-form {
+    max-width: 360px;
+    margin: var(--space-lg) auto 0;
+}
+
+.admin-hint {
+    margin-top: var(--space-lg);
+    font-size: 0.8rem;
+    color: var(--md-on-surface-variant);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--md-surface-container);
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--md-shape-full);
+}
+
+.admin-hint .material-symbols-rounded {
+    font-size: 16px;
+    color: var(--md-primary);
+}
+
+.admin-header {
+    background: linear-gradient(135deg, #4527a0, #6a1b9a);
+    color: white;
+    padding: var(--space-xl) var(--space-md) var(--space-lg);
+    text-align: center;
+    border-radius: 0 0 var(--md-shape-xl) var(--md-shape-xl);
+    margin-bottom: var(--space-md);
+}
+
+.admin-header .dashboard-avatar {
+    background: rgba(255,255,255,0.2);
+    margin: 0 auto var(--space-sm);
+}
+
+.admin-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: var(--space-md);
+}
+
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-xs);
+}
+
+.admin-stats > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-stats b {
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.admin-stats span {
+    font-size: 0.62rem;
+    opacity: 0.85;
+}
+
+.admin-tabs {
+    display: flex;
+    gap: var(--space-xs);
+    padding: 0 var(--space-md);
+    margin-bottom: var(--space-md);
+    overflow-x: auto;
+}
+
+.admin-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 14px;
+    border-radius: var(--md-shape-full);
+    background: var(--md-surface-container);
+    color: var(--md-on-surface-variant);
+    font-weight: 600;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: all var(--anim-duration) var(--anim-easing);
+}
+
+.admin-tab.active {
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+}
+
+.admin-tab.active .count-pill {
+    background: rgba(255,255,255,0.25);
+    color: white;
+}
+
+.admin-content {
+    padding: 0 var(--space-md) var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.admin-card {
+    background: var(--md-surface);
+    border-radius: var(--md-shape-lg);
+    padding: var(--space-md);
+    box-shadow: var(--md-elevation-1);
+    border: 1px solid var(--md-outline-variant);
+}
+
+.admin-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.admin-card-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.admin-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: var(--md-on-surface-variant);
+    margin-bottom: var(--space-sm);
+}
+
+.admin-card-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.admin-card-meta .material-symbols-rounded {
+    font-size: 15px;
+}
+
+.admin-card-actions {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+
+.btn-approve {
+    background: var(--md-primary);
+    color: white;
+}
+
+.btn-reject {
+    background: var(--md-error-container);
+    color: var(--md-on-error-container);
+}
+
+.admin-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) 0;
+    border-top: 1px solid var(--md-outline-variant);
+}
+
+.admin-toggle-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.mini-badge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--md-shape-full);
+    white-space: nowrap;
+}
+
+.mini-badge.garde { background: #fff3e0; color: #e65100; }
+.mini-badge.muted { background: var(--md-surface-container-highest); color: var(--md-on-surface-variant); }
