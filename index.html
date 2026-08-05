@@ -222,6 +222,97 @@
         </div>
     </div>
 
+    <!-- ========== MENU SHEET (overlay) ========== -->
+    <div id="menuSheet" class="portal-overlay">
+        <div class="portal-container menu-sheet-container">
+            <button id="btnCloseMenu" class="icon-btn portal-close" aria-label="Fermer">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+            <div class="menu-sheet-header">
+                <div class="portal-icon menu-icon"><span class="material-symbols-rounded">apps</span></div>
+                <h2>Menu</h2>
+                <p class="portal-sub">Accédez à tous les espaces</p>
+            </div>
+            <div class="menu-options">
+                <button class="menu-option" data-menu="pharmacist">
+                    <span class="menu-opt-icon pharmacist"><span class="material-symbols-rounded">local_pharmacy</span></span>
+                    <span class="menu-opt-text">
+                        <span class="menu-opt-title">Espace Pharmacien</span>
+                        <span class="menu-opt-sub">Gérez votre pharmacie</span>
+                    </span>
+                    <span class="material-symbols-rounded menu-opt-chevron">chevron_right</span>
+                </button>
+                <button class="menu-option" data-menu="claims">
+                    <span class="menu-opt-icon claims"><span class="material-symbols-rounded">inventory_2</span></span>
+                    <span class="menu-opt-text">
+                        <span class="menu-opt-title">Mes Réclamations</span>
+                        <span class="menu-opt-sub">Suivez vos réservations de médicaments</span>
+                    </span>
+                    <span class="material-symbols-rounded menu-opt-chevron">chevron_right</span>
+                </button>
+                <button class="menu-option" data-menu="admin">
+                    <span class="menu-opt-icon admin"><span class="material-symbols-rounded">admin_panel_settings</span></span>
+                    <span class="menu-opt-text">
+                        <span class="menu-opt-title">Espace Admin</span>
+                        <span class="menu-opt-sub">Valider les pharmacies & réclamations</span>
+                    </span>
+                    <span class="material-symbols-rounded menu-opt-chevron">chevron_right</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== CLAIM MODAL (overlay) ========== -->
+    <div id="claimModal" class="portal-overlay">
+        <div class="portal-container">
+            <button id="btnCloseClaim" class="icon-btn portal-close" aria-label="Fermer">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+            <div class="portal-header">
+                <div class="portal-icon claim-icon"><span class="material-symbols-rounded">inventory_2</span></div>
+                <h2>Réserver un médicament</h2>
+                <p class="portal-sub" id="claimPharmacyName"></p>
+            </div>
+            <form id="formClaim" class="portal-form" autocomplete="off">
+                <div class="input-group" id="claimPharmGroup" style="display:none">
+                    <span class="material-symbols-rounded input-icon">local_pharmacy</span>
+                    <select id="claimPharmacySelect" required></select>
+                </div>
+                <div class="input-group">
+                    <span class="material-symbols-rounded input-icon">medication</span>
+                    <input type="text" id="claimMedicine" placeholder="Médicament (nom ou marque)" required list="claimMedList" autocomplete="off">
+                    <datalist id="claimMedList"></datalist>
+                </div>
+                <div class="claim-row">
+                    <div class="input-group">
+                        <span class="material-symbols-rounded input-icon">format_list_numbered</span>
+                        <input type="number" id="claimQuantity" placeholder="Qté" min="1" value="1" required>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <span class="material-symbols-rounded input-icon">person</span>
+                    <input type="text" id="claimName" placeholder="Votre nom" required>
+                </div>
+                <div class="input-group">
+                    <span class="material-symbols-rounded input-icon">call</span>
+                    <input type="tel" id="claimPhone" placeholder="Votre téléphone" required>
+                </div>
+                <div class="input-group">
+                    <span class="material-symbols-rounded input-icon">notes</span>
+                    <input type="text" id="claimNote" placeholder="Note (optionnel)">
+                </div>
+                <p class="claim-disclaimer">
+                    <span class="material-symbols-rounded">info</span>
+                    La pharmacie confirmera la disponibilité. Aucun paiement en ligne.
+                </p>
+                <button type="submit" class="btn-primary btn-full">
+                    <span>Envoyer la réservation</span>
+                    <span class="material-symbols-rounded">send</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- ========== TOAST CONTAINER ========== -->
     <div id="toastContainer" class="toast-container"></div>
 

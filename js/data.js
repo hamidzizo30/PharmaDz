@@ -277,3 +277,103 @@ function savePendingRegistration(data) {
     pending.push(data);
     localStorage.setItem('pharmafind_pending', JSON.stringify(pending));
 }
+
+/* ============================================================
+   v2 — CLAIMS (medicine reservations)
+   Status lifecycle: pending -> confirmed -> completed
+                     (or rejected at any point)
+   ============================================================ */
+function getClaims() {
+    try {
+        const stored = localStorage.getItem('pharmafind_claims');
+        if (stored) return JSON.parse(stored);
+    } catch (e) { /* ignore */ }
+    return [];
+}
+
+function saveClaims(list) {
+    localStorage.setItem('pharmafind_claims', JSON.stringify(list));
+}
+
+function addClaim(claim) {
+    const list = getClaims();
+    claim.id = claim.id || ('cl-' + Date.now());
+    claim.status = claim.status || 'pending';
+    claim.createdAt = claim.createdAt || new Date().toISOString();
+    list.unshift(claim);
+    saveClaims(list);
+    return claim;
+}
+
+function updateClaim(id, patch) {
+    const list = getClaims();
+    const idx = list.findIndex(c => c.id === id);
+    if (idx === -1) return null;
+    list[idx] = Object.assign({}, list[idx], patch, { updatedAt: new Date().toISOString() });
+    saveClaims(list);
+    return list[idx];
+}
+
+function deleteClaim(id) {
+    let list = getClaims();
+    list = list.filter(c => c.id !== id);
+    saveClaims(list);
+}
+
+/* ============================================================
+   v2 — Anonymous browser id (for "My Claims")
+   ============================================================ */
+function getUserId() {
+    let id = localStorage.getItem('pharmafind_user_id');
+    if (!id) {
+        id = 'u-' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem('pharmafind_user_id', id);
+    }
+    return id;
+}
+
+/* ============================================================
+   v2 — ADMIN session (demo access code)
+   ============================================================ */
+const ADMIN_CODE = 'admin2026';
+
+function getAdminSession() {
+    try { return sessionStorage.getItem('pharmafind_admin') === '1'; }
+    catch (e) { return false; }
+}
+
+function saveAdminSession() {
+    sessionStorage.setItem('pharmafind_admin', '1');
+}
+
+function clearAdminSession() {
+    sessionStorage.removeItem('pharmafind_admin');
+}
+
+/* ============================================================
+   v2 — Pharmacy approval / management helpers
+   ============================================================ */
+function approvePharmacy(id) {
+    const list = getStoredPharmacies();
+    const idx = list.findIndex(p => p.id === id);
+    if (idx === -1) return;
+    list[idx].approved = true;
+    list[idx].isPublic = true;
+    savePharmacies(list);
+    const pending = getPendingRegistrations().filter(p => p.id !== id);
+    localStorage.setItem('pharmafind_pending', JSON.stringify(pending));
+}
+
+function rejectPharmacy(id) {
+    let list = getStoredPharmacies();
+    list = list.filter(p => p.id !== id);
+    savePharmacies(list);
+    const pending = getPendingRegistrations().filter(p => p.id !== id);
+    localStorage.setItem('pharmafind_pending', JSON.stringify(pending));
+}
+
+function deletePharmacy(id) {
+    let list = getStoredPharmacies();
+    list = list.filter(p => p.id !== id);
+    savePharmacies(list);
+}

@@ -12,11 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedWilaya: null,
         finderMap: null,
         gardeMap: null,
+        nearestMap: null,
         registerMap: null,
         registerMarker: null,
         registerLat: 36.7538,     // default: Alger Centre
         registerLng: 3.0588,
         currentPharmacist: null,
+        isAdmin: false,
+        adminTab: 'pending',
+        claimTargetPharmacyId: null,
+        claimResultScroll: 0,
     };
 
     // ============ DOM REFS ============
@@ -35,12 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
         portalRegister: document.getElementById('portalRegister'),
         portalPending: document.getElementById('portalPending'),
         toastContainer: document.getElementById('toastContainer'),
+        menuSheet: document.getElementById('menuSheet'),
+        claimModal: document.getElementById('claimModal'),
     };
 
     // ============ INIT ============
     function init() {
         state.pharmacies = getStoredPharmacies();
         state.currentPharmacist = getStoredPharmacist();
+        state.isAdmin = getAdminSession();
         populateWilayaSelect();
         setupEventListeners();
         renderView('home');
@@ -64,8 +72,134 @@ document.addEventListener('DOMContentLoaded', () => {
         // Back button
         dom.btnBack.addEventListener('click', goBack);
 
-        // Menu (pharmacist portal)
-        dom.btnMenu.addEventListener('click', openPharmacistPortal);
+        // Menu (opens a sheet with Pharmacien / Claims / Admin)
+        dom.btnMenu.addEventListener('click', openMenuSheet);
+        document.getElementById('btnCloseMenu').addEventListener('click', closeMenuSheet);
+        dom.menuSheet.addEventListener('click', (e) => {
+            if (e.target === dom.menuSheet) closeMenuSheet();
+        });
+        document.querySelectorAll('.menu-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                const target = opt.dataset.menu;
+                closeMenuSheet();
+                if (target === 'pharmacist') {
+                    openPharmacistPortal();
+                } else if (target === 'claims') {
+                    navigateTo('claims');
+                } else if (target === 'admin') {
+                    navigateTo('admin');
+                }
+            });
+        });
+
+        // Claim modal
+        document.getElementById('btnCloseClaim').addEventListener('click', closeClaimModal);
+        document.getElementById('formClaim').addEventListener('submit', handleClaimSubmit);
+        dom.claimModal.addEventListener('click', (e) => {
+            if (e.target === dom.claimModal) closeClaimModal();
+        });
+
+        // Delegated click actions inside dynamically-rendered views
+        dom.mainContent.addEventListener('click', (e) => {
+            const claimBtn = e.target.closest('[data-claim]');
+            if (claimBtn) {
+                e.stopPropagation();
+                openClaimFor(claimBtn.dataset.claim);
+                return;
+            }
+            const dirBtn = e.target.closest('[data-dir]');
+            if (dirBtn) {
+                e.stopPropagation();
+                const parts = dirBtn.dataset.dir.split(',');
+                openDirections(parseFloat(parts[0]), parseFloat(parts[1]));
+                return;
+            }
+            const cancelBtn = e.target.closest('[data-cancel-claim]');
+            if (cancelBtn) {
+                updateClaim(cancelBtn.dataset.cancelClaim, { status: 'rejected' });
+                toast('Réservation annulée', 'success');
+                renderView(state.currentView);
+                return;
+            }
+            const delClaim = e.target.closest('[data-delete-claim]');
+            if (delClaim) {
+                deleteClaim(delClaim.dataset.deleteClaim);
+                toast('Réservation supprimée', 'success');
+                renderView(state.currentView);
+                return;
+            }
+            // Admin: tab switch
+            const adminTab = e.target.closest('[data-admin-tab]');
+            if (adminTab) {
+                state.adminTab = adminTab.dataset.adminTab;
+                renderView('admin');
+                return;
+            }
+            // Admin: approve / reject / delete pharmacy
+            const approve = e.target.closest('[data-approve]');
+            if (approve) {
+                approvePharmacy(approve.dataset.approve);
+                toast('Pharmacie approuvée et publiée', 'success');
+                renderView('admin');
+                return;
+            }
+            const reject = e.target.closest('[data-reject]');
+            if (reject) {
+                if (confirm('Refuser (supprimer) cette demande de pharmacie ?')) {
+                    rejectPharmacy(reject.dataset.reject);
+                    toast('Demande refusée', 'success');
+                    renderView('admin');
+                }
+                return;
+            }
+            const delPharm = e.target.closest('[data-del-pharm]');
+            if (delPharm) {
+                if (confirm('Supprimer définitivement cette pharmacie ?')) {
+                    deletePharmacy(delPharm.dataset.delPharm);
+                    toast('Pharmacie supprimée', 'success');
+                    renderView('admin');
+                }
+                return;
+            }
+            // Admin: toggle garde / public
+            const tg = e.target.closest('[data-toggle-garde]');
+            if (tg) {
+                const id = tg.dataset.toggleGarde;
+                const p = getStoredPharmacies().find(x => x.id === id);
+                updatePharmacyField(id, 'isGarde', !(p && p.isGarde));
+                renderView('admin');
+                return;
+            }
+            const tp = e.target.closest('[data-toggle-public]');
+            if (tp) {
+                const id = tp.dataset.togglePublic;
+                const p = getStoredPharmacies().find(x => x.id === id);
+                updatePharmacyField(id, 'isPublic', !(p && p.isPublic));
+                renderView('admin');
+                return;
+            }
+            // Admin logout
+            const adminLogout = e.target.closest('[data-admin-logout]');
+            if (adminLogout) {
+                clearAdminSession();
+                state.isAdmin = false;
+                state.adminTab = 'pending';
+                toast('Déconnecté de l\'espace admin', 'success');
+                navigateTo('home');
+                return;
+            }
+        });
+
+        // Delegated change events (claim-status <select>s in pharmacist/admin views)
+        dom.mainContent.addEventListener('change', (e) => {
+            const sel = e.target.closest('[data-claim-status]');
+            if (sel) {
+                updateClaim(sel.dataset.claimStatus, { status: sel.value });
+                toast('Statut de la réservation mis à jour', 'success');
+                renderView(state.currentView);
+            }
+        });
+
         dom.portalClose.addEventListener('click', closePharmacistPortal);
 
         // Portal tab switching
@@ -129,8 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.navItems.forEach(item => {
             item.classList.toggle('active', item.dataset.view === view);
         });
-        // Hide bottom nav for dashboard view
-        if (view === 'dashboard') {
+        // Hide bottom nav for full-screen account views
+        if (view === 'dashboard' || view === 'admin') {
             dom.bottomNav.style.display = 'none';
         } else {
             dom.bottomNav.style.display = '';
@@ -146,6 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'finder': renderFinderView(); break;
             case 'garde': renderGardeView(); break;
             case 'search': renderSearchView(); break;
+            case 'nearest': renderNearestView(); break;
+            case 'claims': renderClaimsView(); break;
+            case 'admin': renderAdminView(); break;
             case 'dashboard': renderDashboardView(); break;
             default: renderHomeView();
         }
@@ -161,6 +298,9 @@ document.addEventListener('DOMContentLoaded', () => {
             finder: 'À Proximité',
             garde: 'Pharmacies de Garde',
             search: 'Recherche Médicament',
+            nearest: '10 Plus Proches',
+            claims: 'Mes Réclamations',
+            admin: 'Espace Admin',
             dashboard: 'Tableau de Bord'
         };
         return titles[view] || 'Pharma-Find DZ';
@@ -193,12 +333,19 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <div class="quick-actions">
+                <div class="quick-action-card" data-action="nearest">
+                    <div class="qa-icon location">
+                        <span class="material-symbols-rounded">format_list_numbered</span>
+                    </div>
+                    <div class="qa-title">10 Plus Proches</div>
+                    <div class="qa-sub">Les pharmacies autour de vous</div>
+                </div>
                 <div class="quick-action-card" data-action="finder">
                     <div class="qa-icon location">
                         <span class="material-symbols-rounded">my_location</span>
                     </div>
                     <div class="qa-title">Pharmacies Proches</div>
-                    <div class="qa-sub">Trouvez les pharmacies autour de vous</div>
+                    <div class="qa-sub">Carte des pharmacies</div>
                 </div>
                 <div class="quick-action-card" data-action="garde">
                     <div class="qa-icon garde">
@@ -213,6 +360,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="qa-title">Chercher Médicament</div>
                     <div class="qa-sub">Vérifiez la disponibilité</div>
+                </div>
+                <div class="quick-action-card" data-action="claims">
+                    <div class="qa-icon claims">
+                        <span class="material-symbols-rounded">inventory_2</span>
+                    </div>
+                    <div class="qa-title">Mes Réclamations</div>
+                    <div class="qa-sub">Vos réservations</div>
                 </div>
                 <div class="quick-action-card" id="cardPharmacistPortal">
                     <div class="qa-icon map">
@@ -264,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.mainContent.querySelectorAll('.quick-action-card').forEach(card => {
             card.addEventListener('click', () => {
                 const action = card.dataset.action;
-                if (action === 'finder' || action === 'garde' || action === 'search') {
+                if (action === 'finder' || action === 'garde' || action === 'search' || action === 'nearest' || action === 'claims') {
                     navigateTo(action);
                 }
             });
@@ -300,13 +454,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return gardePharmacies.slice(0, maxCount).map(p => renderPharmacyCard(p)).join('');
     }
 
-    function renderPharmacyCard(p, showDistance = false) {
+    function renderPharmacyCard(p, opts) {
+        opts = opts || {};
+        const showDistance = !!opts.showDistance;
+        const rank = opts.rank;
+
         const distanceText = showDistance && state.userLocation
             ? formatDistance(haversineDistance(state.userLocation.lat, state.userLocation.lng, p.lat, p.lng))
             : '';
 
+        const rankBadge = (rank && rank <= 10)
+            ? `<div class="rank-badge">${rank}</div>`
+            : '';
+
         return `
-            <div class="pharmacy-card" data-id="${p.id}">
+            <div class="pharmacy-card ${rank ? 'ranked' : ''}" data-id="${p.id}">
+                ${rankBadge}
                 ${p.isGarde ? '<div class="garde-badge"><span class="material-symbols-rounded" style="font-size:12px">bolt</span> Garde</div>' : ''}
                 <div class="pharmacy-avatar">
                     <span class="material-symbols-rounded">local_pharmacy</span>
@@ -319,13 +482,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     ${distanceText ? `<div class="pharmacy-distance">📏 ${distanceText}</div>` : ''}
                     <div class="pharmacy-actions">
-                        <a href="tel:${p.phone}" class="btn-sm btn-call" onclick="event.stopPropagation()">
+                        <a href="tel:${p.phone}" class="btn-sm btn-call">
                             <span class="material-symbols-rounded" style="font-size:16px">call</span>
                             Appeler
                         </a>
-                        <button class="btn-sm btn-directions" onclick="event.stopPropagation(); openDirections(${p.lat},${p.lng})">
+                        <button class="btn-sm btn-directions" data-dir="${p.lat},${p.lng}">
                             <span class="material-symbols-rounded" style="font-size:16px">directions</span>
                             Itinéraire
+                        </button>
+                        <button class="btn-sm btn-claim" data-claim="${p.id}">
+                            <span class="material-symbols-rounded" style="font-size:16px">inventory_2</span>
+                            Réserver
                         </button>
                     </div>
                 </div>
@@ -348,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             </div>
             <div class="section-header">
-                <h3>${state.userLocation ? 'Pharmacies les plus proches' : 'Toutes les pharmacies'}</h3>
+                <h3>${state.userLocation ? 'Les 10 plus proches' : 'Toutes les pharmacies'}</h3>
                 ${state.selectedWilaya ? `<span style="font-size:0.8rem;color:var(--md-primary);font-weight:600">${WILAYAS.find(w=>w.code===state.selectedWilaya)?.name||''}</span>` : ''}
             </div>
             <div class="pharmacy-list" id="finderPharmacyList"></div>
@@ -476,23 +643,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function sortByDistance(arr) {
+        if (!state.userLocation) return arr;
+        return arr.slice().sort((a, b) => {
+            const dA = haversineDistance(state.userLocation.lat, state.userLocation.lng, a.lat, a.lng);
+            const dB = haversineDistance(state.userLocation.lat, state.userLocation.lng, b.lat, b.lng);
+            return dA - dB;
+        });
+    }
+
+    function getVisiblePharmacies() {
+        let pharmacies = state.pharmacies.filter(p => p.approved && p.isPublic);
+        if (state.selectedWilaya) {
+            pharmacies = pharmacies.filter(p => p.wilaya === state.selectedWilaya);
+        }
+        return pharmacies;
+    }
+
     function renderFinderPharmacyList() {
         const listEl = document.getElementById('finderPharmacyList');
         if (!listEl) return;
 
-        let pharmacies = state.pharmacies.filter(p => p.approved && p.isPublic);
-        
-        if (state.selectedWilaya) {
-            pharmacies = pharmacies.filter(p => p.wilaya === state.selectedWilaya);
-        }
+        const nearestMode = !!state.userLocation;
+        let pharmacies = sortByDistance(getVisiblePharmacies());
 
-        // Sort by distance if location available
-        if (state.userLocation) {
-            pharmacies.sort((a, b) => {
-                const dA = haversineDistance(state.userLocation.lat, state.userLocation.lng, a.lat, a.lng);
-                const dB = haversineDistance(state.userLocation.lat, state.userLocation.lng, b.lat, b.lng);
-                return dA - dB;
-            });
+        if (nearestMode) {
+            pharmacies = pharmacies.slice(0, 10); // Nearest 10
         }
 
         if (pharmacies.length === 0) {
@@ -505,7 +681,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        listEl.innerHTML = pharmacies.map(p => renderPharmacyCard(p, !!state.userLocation)).join('');
+        listEl.innerHTML = pharmacies.map((p, i) =>
+            renderPharmacyCard(p, { showDistance: nearestMode, rank: nearestMode ? (i + 1) : null })
+        ).join('');
     }
 
     // ============ GARDE VIEW ============
@@ -533,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h3>Aucune pharmacie de garde aujourd'hui</h3>
                         <p>Les données sont mises à jour quotidiennement. Revenez plus tard !</p>
                     </div>
-                ` : gardePharmacies.slice(0, 5).map(p => renderPharmacyCard(p, !!state.userLocation)).join('')}
+                ` : gardePharmacies.slice(0, 5).map(p => renderPharmacyCard(p, { showDistance: !!state.userLocation })).join('')}
             </div>
         `;
 
@@ -729,9 +907,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         Disponible dans <b>${r.pharmacies.length}</b> pharmacie(s)
                     </div>
                     ${r.pharmacies.map(p => `
-                        <div style="font-size:0.72rem;color:var(--md-primary);margin-top:2px;">
-                            📍 ${p.pharmacyName} — ${p.commune}
-                            ${p.isGarde ? ' <span style="color:#e65100;font-weight:700;">⚡ Garde</span>' : ''}
+                        <div class="search-pharm-row">
+                            <span class="search-pharm-loc">
+                                📍 ${p.pharmacyName} — ${p.commune}
+                                ${p.isGarde ? ' <span style="color:#e65100;font-weight:700;">⚡ Garde</span>' : ''}
+                            </span>
+                            <button type="button" class="btn-mini-claim" data-claim="${p.id}">
+                                <span class="material-symbols-rounded" style="font-size:14px">inventory_2</span>
+                                Réserver
+                            </button>
                         </div>
                     `).join('')}
                 </div>
@@ -977,6 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pharmacy = state.pharmacies.find(ph => ph.id === p.id) || p;
         const isGarde = pharmacy.isGarde || false;
         const medicines = pharmacy.medicines || [];
+        const incomingClaims = getClaims().filter(c => c.pharmacyId === p.id);
 
         dom.mainContent.innerHTML = `
             <div class="dashboard-header">
@@ -1023,6 +1208,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             </span>
                         `).join('')}
                     </div>
+                </div>
+            </div>
+
+            <div class="dashboard-section">
+                <h3>
+                    <span class="material-symbols-rounded">inventory_2</span> Réservations reçues
+                    <span class="count-pill">${incomingClaims.length}</span>
+                </h3>
+                <div class="claims-list">
+                    ${incomingClaims.length === 0
+                        ? `<div class="mini-empty">Aucune réservation pour le moment.</div>`
+                        : incomingClaims.map(c => renderClaimCard(c, 'manage')).join('')}
                 </div>
             </div>
 
@@ -1118,6 +1315,390 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentPharmacist[field] = value;
             savePharmacist(state.currentPharmacist);
         }
+    }
+
+    // ============ v2: ESCAPE / CLAIM STATUS HELPERS ============
+    function escapeHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    const CLAIM_STATUS_OPTIONS = ['pending', 'confirmed', 'ready', 'completed', 'rejected'];
+
+    function claimStatusMeta(status) {
+        switch (status) {
+            case 'confirmed': return { label: 'Confirmée', cls: 'st-confirmed', icon: 'check_circle' };
+            case 'ready':     return { label: 'Prête', cls: 'st-ready', icon: 'inventory' };
+            case 'completed': return { label: 'Terminée', cls: 'st-completed', icon: 'task_alt' };
+            case 'rejected':  return { label: 'Refusée', cls: 'st-rejected', icon: 'cancel' };
+            default:          return { label: 'En attente', cls: 'st-pending', icon: 'schedule' };
+        }
+    }
+
+    // ============ v2: MENU SHEET ============
+    function openMenuSheet() {
+        dom.menuSheet.classList.add('open');
+    }
+
+    function closeMenuSheet() {
+        dom.menuSheet.classList.remove('open');
+    }
+
+    // ============ v2: CLAIM MODAL ============
+    function openClaimFor(pharmacyId) {
+        state.claimTargetPharmacyId = pharmacyId;
+        const pharmGroup = document.getElementById('claimPharmGroup');
+        const nameEl = document.getElementById('claimPharmacyName');
+        populateClaimMedList();
+
+        if (pharmacyId) {
+            const p = getStoredPharmacies().find(x => x.id === pharmacyId);
+            if (pharmGroup) pharmGroup.style.display = 'none';
+            nameEl.textContent = p ? `${p.pharmacyName} — ${p.commune}, ${p.wilayaName || ''}` : '';
+        } else {
+            if (pharmGroup) pharmGroup.style.display = 'flex';
+            nameEl.textContent = 'Choisissez une pharmacie ci-dessous';
+            populateClaimPharmacySelect();
+        }
+
+        dom.claimModal.classList.add('open');
+        setTimeout(() => {
+            const f = document.getElementById('claimMedicine');
+            if (f) f.focus();
+        }, 300);
+    }
+
+    function closeClaimModal() {
+        dom.claimModal.classList.remove('open');
+        const form = document.getElementById('formClaim');
+        if (form) form.reset();
+        state.claimTargetPharmacyId = null;
+    }
+
+    function populateClaimMedList() {
+        const dl = document.getElementById('claimMedList');
+        if (!dl) return;
+        dl.innerHTML = COMMON_MEDICINES.map(m =>
+            `<option value="${escapeHtml(m.name)}">${m.brand ? m.brand + ' — ' : ''}${escapeHtml(m.name)}</option>`
+        ).join('');
+    }
+
+    function populateClaimPharmacySelect() {
+        const sel = document.getElementById('claimPharmacySelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="" disabled selected>Sélectionnez une pharmacie</option>' +
+            getStoredPharmacies().filter(p => p.approved && p.isPublic)
+                .map(p => `<option value="${p.id}">${escapeHtml(p.pharmacyName)} — ${escapeHtml(p.commune)}</option>`)
+                .join('');
+    }
+
+    function handleClaimSubmit(e) {
+        e.preventDefault();
+        let pharmacyId = state.claimTargetPharmacyId;
+        if (!pharmacyId) {
+            const sel = document.getElementById('claimPharmacySelect');
+            pharmacyId = sel ? sel.value : '';
+        }
+        const pharmacy = getStoredPharmacies().find(p => p.id === pharmacyId);
+        if (!pharmacy) { toast('Veuillez choisir une pharmacie', 'error'); return; }
+
+        const medicine = document.getElementById('claimMedicine').value.trim();
+        const quantity = parseInt(document.getElementById('claimQuantity').value, 10) || 1;
+        const patientName = document.getElementById('claimName').value.trim();
+        const phone = document.getElementById('claimPhone').value.trim();
+        const note = document.getElementById('claimNote').value.trim();
+
+        if (!medicine) { toast('Indiquez le médicament', 'error'); return; }
+        if (!patientName || !phone) { toast('Veuillez remplir votre nom et téléphone', 'error'); return; }
+
+        addClaim({
+            pharmacyId: pharmacy.id,
+            pharmacyName: pharmacy.pharmacyName,
+            commune: pharmacy.commune,
+            wilayaName: pharmacy.wilayaName,
+            medicine, quantity, patientName, phone, note,
+            claimerId: getUserId(), status: 'pending'
+        });
+
+        closeClaimModal();
+        toast('Réservation envoyée à la pharmacie', 'success');
+        if (state.currentView === 'claims') renderView('claims');
+    }
+
+    // ============ v2: NEAREST 10 VIEW ============
+    function renderNearestView() {
+        if (!state.userLocation) {
+            dom.mainContent.innerHTML = `
+                <div class="nearest-hero">
+                    <span class="material-symbols-rounded">format_list_numbered</span>
+                    <h2>Les 10 pharmacies les plus proches</h2>
+                    <p>Activez votre localisation pour voir les pharmacies autour de vous, classées par distance.</p>
+                    <button class="btn-primary" id="btnNearestLocate">
+                        <span class="material-symbols-rounded">my_location</span> Activer la localisation
+                    </button>
+                </div>`;
+            const btn = document.getElementById('btnNearestLocate');
+            if (btn) btn.addEventListener('click', () => {
+                requestLocation().then(ok => { if (ok) renderView('nearest'); });
+            });
+            return;
+        }
+
+        const all = sortByDistance(getVisiblePharmacies()).slice(0, 10);
+
+        dom.mainContent.innerHTML = `
+            <div class="map-wrapper" style="height:36vh">
+                <div id="nearestMap"></div>
+                <button class="map-fab" id="btnNearestRecenter" title="Ma position">
+                    <span class="material-symbols-rounded">my_location</span>
+                </button>
+            </div>
+            <div class="section-header">
+                <h3>🏆 Les 10 plus proches</h3>
+                <span style="font-size:0.78rem;color:var(--md-on-surface-variant);font-weight:600">${all.length} trouvée(s)</span>
+            </div>
+            <div class="pharmacy-list" id="nearestList">
+                ${all.length === 0
+                    ? `<div class="empty-state"><span class="material-symbols-rounded">location_off</span><h3>Aucune pharmacie à proximité</h3><p>Essayez de changer de wilaya.</p></div>`
+                    : all.map((p, i) => renderPharmacyCard(p, { showDistance: true, rank: i + 1 })).join('')}
+            </div>`;
+
+        setTimeout(() => initNearestMap(), 100);
+
+        const fab = document.getElementById('btnNearestRecenter');
+        if (fab) fab.addEventListener('click', () => {
+            if (state.nearestMap && state.userLocation) {
+                state.nearestMap.setView([state.userLocation.lat, state.userLocation.lng], 14);
+            }
+        });
+    }
+
+    function initNearestMap() {
+        const mapEl = document.getElementById('nearestMap');
+        if (!mapEl || !state.userLocation) return;
+        if (state.nearestMap) { state.nearestMap.remove(); state.nearestMap = null; }
+        state.nearestMap = L.map('nearestMap', {
+            center: [state.userLocation.lat, state.userLocation.lng],
+            zoom: 13, zoomControl: true, attributionControl: false
+        });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(state.nearestMap);
+        addPharmacyMarkers(state.nearestMap);
+        setTimeout(() => { if (state.nearestMap) state.nearestMap.invalidateSize(); }, 250);
+    }
+
+    // ============ v2: CLAIMS VIEW ============
+    function renderClaimsView() {
+        const userId = getUserId();
+        const myClaims = getClaims().filter(c => c.claimerId === userId);
+        const activeCount = myClaims.filter(c => !['completed', 'rejected'].includes(c.status)).length;
+
+        dom.mainContent.innerHTML = `
+            <div class="claims-header">
+                <div class="claims-icon"><span class="material-symbols-rounded">inventory_2</span></div>
+                <h2>Mes Réclamations</h2>
+                <p>${myClaims.length} réservation(s) • ${activeCount} en cours</p>
+            </div>
+            <div class="dashboard-section">
+                <button class="btn-primary btn-full" id="btnNewClaim">
+                    <span class="material-symbols-rounded">add</span> Nouvelle réservation
+                </button>
+            </div>
+            <div class="claims-list" id="claimsList">
+                ${myClaims.length === 0
+                    ? `<div class="empty-state"><span class="material-symbols-rounded">inventory_2</span><h3>Aucune réservation</h3><p>Réservez un médicament depuis une pharmacie ou la recherche pour le retrouver ici.</p></div>`
+                    : myClaims.map(c => renderClaimCard(c, 'user')).join('')}
+            </div>`;
+
+        document.getElementById('btnNewClaim').addEventListener('click', () => openClaimFor(null));
+    }
+
+    function renderClaimCard(claim, context) {
+        const meta = claimStatusMeta(claim.status);
+        const date = new Date(claim.createdAt).toLocaleString('fr-FR',
+            { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+        let actions = '';
+        if (context === 'user') {
+            const cancellable = !['completed', 'rejected'].includes(claim.status);
+            actions = cancellable
+                ? `<button class="btn-sm btn-cancel-claim" data-cancel-claim="${claim.id}">Annuler la réservation</button>`
+                : '';
+        } else {
+            actions = `
+                <select class="claim-status-select" data-claim-status="${claim.id}">
+                    ${CLAIM_STATUS_OPTIONS.map(s => `<option value="${s}" ${s === claim.status ? 'selected' : ''}>${claimStatusMeta(s).label}</option>`).join('')}
+                </select>
+                <button class="btn-icon-x" data-delete-claim="${claim.id}" title="Supprimer">
+                    <span class="material-symbols-rounded">delete</span>
+                </button>`;
+        }
+
+        return `
+            <div class="claim-card">
+                <div class="claim-card-top">
+                    <div class="claim-med">
+                        <span class="material-symbols-rounded claim-med-icon">pill</span>
+                        <div>
+                            <div class="claim-med-name">${escapeHtml(claim.medicine)} <span class="claim-qty">×${claim.quantity}</span></div>
+                            <div class="claim-pharm">📍 ${escapeHtml(claim.pharmacyName)}${claim.commune ? ' — ' + escapeHtml(claim.commune) : ''}</div>
+                        </div>
+                    </div>
+                    <span class="claim-status-badge ${meta.cls}">
+                        <span class="material-symbols-rounded" style="font-size:14px">${meta.icon}</span>${meta.label}
+                    </span>
+                </div>
+                <div class="claim-meta">
+                    <span><span class="material-symbols-rounded">person</span>${escapeHtml(claim.patientName || '—')}</span>
+                    ${claim.phone ? `<a href="tel:${escapeHtml(claim.phone)}"><span class="material-symbols-rounded">call</span>${escapeHtml(claim.phone)}</a>` : ''}
+                    <span><span class="material-symbols-rounded">schedule</span>${date}</span>
+                </div>
+                ${claim.note ? `<div class="claim-note"><span class="material-symbols-rounded">notes</span>${escapeHtml(claim.note)}</div>` : ''}
+                ${actions ? `<div class="claim-actions">${actions}</div>` : ''}
+            </div>`;
+    }
+
+    // ============ v2: ADMIN VIEW ============
+    function renderAdminView() {
+        if (!state.isAdmin) { renderAdminLogin(); return; }
+        renderAdminDashboard();
+    }
+
+    function renderAdminLogin() {
+        dom.mainContent.innerHTML = `
+            <div class="admin-login">
+                <div class="admin-login-icon"><span class="material-symbols-rounded">admin_panel_settings</span></div>
+                <h2>Espace Administrateur</h2>
+                <p class="portal-sub">Connectez-vous pour valider les pharmacies et gérer les réclamations.</p>
+                <form id="formAdminLogin" class="portal-form" autocomplete="off">
+                    <div class="input-group">
+                        <span class="material-symbols-rounded input-icon">vpn_key</span>
+                        <input type="password" id="adminCode" placeholder="Code d'accès admin" required>
+                    </div>
+                    <button type="submit" class="btn-primary btn-full">
+                        <span>Se connecter</span><span class="material-symbols-rounded">arrow_forward</span>
+                    </button>
+                </form>
+                <p class="admin-hint"><span class="material-symbols-rounded">info</span> Code de démonstration : <b>admin2026</b></p>
+            </div>`;
+
+        document.getElementById('formAdminLogin').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = document.getElementById('adminCode').value.trim();
+            if (code === ADMIN_CODE) {
+                saveAdminSession();
+                state.isAdmin = true;
+                toast("Bienvenue dans l'espace admin", 'success');
+                renderView('admin');
+            } else {
+                toast("Code d'accès incorrect", 'error');
+            }
+        });
+    }
+
+    function renderAdminDashboard() {
+        const pharmacies = getStoredPharmacies();
+        const approved = pharmacies.filter(p => p.approved);
+        const pending = pharmacies.filter(p => !p.approved);
+        const claims = getClaims();
+        const gardeCount = approved.filter(p => p.isGarde).length;
+        const tab = state.adminTab || 'pending';
+
+        const tabs = [
+            { id: 'pending', label: 'À valider', count: pending.length, icon: 'pending_actions' },
+            { id: 'pharmacies', label: 'Pharmacies', count: approved.length, icon: 'local_pharmacy' },
+            { id: 'claims', label: 'Réclamations', count: claims.length, icon: 'inventory_2' }
+        ];
+
+        let content = '';
+        if (tab === 'pending') {
+            content = pending.length === 0
+                ? emptyAdmin('Aucune pharmacie à valider', 'Toutes les demandes ont été traitées.', 'verified')
+                : pending.map(p => adminPendingCard(p)).join('');
+        } else if (tab === 'pharmacies') {
+            content = approved.length === 0
+                ? emptyAdmin('Aucune pharmacie', 'Aucune pharmacie approuvée.', 'local_pharmacy')
+                : approved.map(p => adminPharmacyRow(p)).join('');
+        } else {
+            content = claims.length === 0
+                ? emptyAdmin('Aucune réclamation', 'Aucune réservation à traiter.', 'inventory_2')
+                : claims.map(c => renderClaimCard(c, 'manage')).join('');
+        }
+
+        dom.mainContent.innerHTML = `
+            <div class="admin-header">
+                <div class="dashboard-avatar"><span class="material-symbols-rounded">admin_panel_settings</span></div>
+                <h2>Espace Administrateur</h2>
+                <div class="admin-stats">
+                    <div><b>${approved.length}</b><span>Approuvées</span></div>
+                    <div><b>${pending.length}</b><span>En attente</span></div>
+                    <div><b>${gardeCount}</b><span>De garde</span></div>
+                    <div><b>${claims.length}</b><span>Réclamations</span></div>
+                </div>
+            </div>
+            <div class="admin-tabs">
+                ${tabs.map(t => `
+                    <button class="admin-tab ${t.id === tab ? 'active' : ''}" data-admin-tab="${t.id}">
+                        <span class="material-symbols-rounded" style="font-size:18px">${t.icon}</span>
+                        ${t.label} <span class="count-pill">${t.count}</span>
+                    </button>`).join('')}
+            </div>
+            <div class="admin-content">${content}</div>
+            <div class="dashboard-section">
+                <button class="btn-outline btn-full" data-admin-logout="1">
+                    <span class="material-symbols-rounded">logout</span> Déconnexion
+                </button>
+            </div>`;
+    }
+
+    function emptyAdmin(title, sub, icon) {
+        return `<div class="empty-state"><span class="material-symbols-rounded">${icon}</span><h3>${title}</h3><p>${sub}</p></div>`;
+    }
+
+    function adminPendingCard(p) {
+        return `
+            <div class="admin-card">
+                <div class="admin-card-head">
+                    <div class="admin-card-title">${escapeHtml(p.pharmacyName)}</div>
+                    ${p.isGarde ? '<span class="mini-badge garde">Garde</span>' : ''}
+                </div>
+                <div class="admin-card-meta">
+                    <span><span class="material-symbols-rounded">person</span>${escapeHtml(p.pharmacistName || '')}</span>
+                    <span><span class="material-symbols-rounded">call</span>${escapeHtml(p.phone || '')}</span>
+                    <span><span class="material-symbols-rounded">location_on</span>${escapeHtml(p.commune || '')}, ${escapeHtml(p.wilayaName || '')}</span>
+                    ${(p.pharmacistEmail || p.contactEmail) ? `<span><span class="material-symbols-rounded">email</span>${escapeHtml(p.pharmacistEmail || p.contactEmail)}</span>` : ''}
+                </div>
+                <div class="admin-card-actions">
+                    <button class="btn-sm btn-approve" data-approve="${p.id}"><span class="material-symbols-rounded" style="font-size:16px">check</span>Approuver</button>
+                    <button class="btn-sm btn-reject" data-reject="${p.id}"><span class="material-symbols-rounded" style="font-size:16px">close</span>Refuser</button>
+                </div>
+            </div>`;
+    }
+
+    function adminPharmacyRow(p) {
+        return `
+            <div class="admin-card">
+                <div class="admin-card-head">
+                    <div class="admin-card-title">${escapeHtml(p.pharmacyName)}</div>
+                    ${p.isGarde ? '<span class="mini-badge garde">Garde</span>' : ''}
+                    ${!p.isPublic ? '<span class="mini-badge muted">Masquée</span>' : ''}
+                </div>
+                <div class="admin-card-meta">
+                    <span><span class="material-symbols-rounded">location_on</span>${escapeHtml(p.commune || '')}, ${escapeHtml(p.wilayaName || '')}</span>
+                    <span><span class="material-symbols-rounded">call</span>${escapeHtml(p.phone || '')}</span>
+                </div>
+                <div class="admin-toggle-row">
+                    <span class="admin-toggle-label">Pharmacie de garde</span>
+                    <div class="toggle-switch ${p.isGarde ? 'active' : ''}" data-toggle-garde="${p.id}"></div>
+                </div>
+                <div class="admin-toggle-row">
+                    <span class="admin-toggle-label">Visible publiquement</span>
+                    <div class="toggle-switch ${p.isPublic ? 'active' : ''}" data-toggle-public="${p.id}"></div>
+                </div>
+                <div class="admin-card-actions">
+                    <button class="btn-sm btn-reject" data-del-pharm="${p.id}"><span class="material-symbols-rounded" style="font-size:16px">delete</span>Supprimer</button>
+                </div>
+            </div>`;
     }
 
     // ============ PHOTO UPLOAD ============
